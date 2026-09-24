@@ -151,9 +151,12 @@ def score_session(db: Session, sess: SimulationSession) -> dict:
             "faster containment limits (simulated) damage.")
 
     grade = "A" if total >= 90 else "B" if total >= 80 else "C" if total >= 70 else "D" if total >= 60 else "F"
+    grade_label = {"A": "Excellent", "B": "Proficient", "C": "Developing",
+                   "D": "Needs work", "F": "Incomplete"}[grade]
     return {
         "total": total,
         "grade": grade,
+        "grade_label": grade_label,
         "dimensions": {
             "detection": {"score": dims["detection"], "max": 25},
             "investigation": {"score": dims["investigation"], "max": 20},

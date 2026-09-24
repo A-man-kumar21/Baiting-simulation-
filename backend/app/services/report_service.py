@@ -32,6 +32,26 @@ def build_report(db: Session, sess: SimulationSession) -> dict:
     recommendations.append("Review the MITRE ATT&CK techniques above to understand each attack stage.")
     recommendations.append("In a real SOC, escalate to the incident response team before taking disruptive actions.")
 
+    # Triage + response-time rollups for the frontend report view.
+    acked = [a for a in alerts if a.status not in ("NEW",)]
+    crit_missed = [a for a in alerts if a.severity == "CRITICAL" and a.status in ("NEW", "FALSE_POSITIVE")]
+    score = sess.score or {}
+    times = score.get("times", {}) if isinstance(score, dict) else {}
+
+    first_event_ts = events[0].timestamp if events else None
+    summary = (
+        f"{analyst.name if analyst else 'An analyst'} ran '{scenario.name}' "
+        f"({sess.status.lower()}). {len(events)} simulated events produced {len(alerts)} alerts; "
+        f"{len(acked)} were triaged, {len(incidents)} incident(s) opened, {len(actions)} response "
+        f"action(s) executed (all simulated)."
+    )
+    containment_summary = (
+        f"{len(containment)} containment action(s) taken: "
+        + (", ".join(sorted({a.action_type for a in containment})) or "none")
+        + ". " + ("Containment achieved." if any(i.status in ("CONTAINED", "RESOLVED") for i in incidents)
+                  else "Containment not reached.")
+    )
+
     return {
         "simulation_id": sess.id,
         "scenario": {"id": scenario.id, "name": scenario.name, "attack_type": scenario.attack_type,
@@ -41,9 +61,28 @@ def build_report(db: Session, sess: SimulationSession) -> dict:
         "started_at": sess.started_at.isoformat() if sess.started_at else None,
         "ended_at": sess.completed_at.isoformat() if sess.completed_at else None,
         "status": sess.status,
+        "summary": summary,
+        "response_times": {
+            "time_to_detect_sec": times.get("ttd_sec"),
+            "time_to_contain_sec": times.get("ttc_sec"),
+            "time_to_resolve_sec": times.get("ttr_sec"),
+        },
+        "triage": {
+            "total_alerts": len(alerts),
+            "acknowledged": len(acked),
+            "false_positives": len([a for a in alerts if a.status == "FALSE_POSITIVE"]),
+            "missed_critical": len(crit_missed),
+        },
+        "expected_vs_taken": {
+            "matched": sorted(f"{t[0]}:{t[1]}" for t in taken & expected),
+            "missed": sorted(f"{t[0]}:{t[1]}" for t in expected - taken),
+        },
+        "containment_summary": containment_summary,
         "attack_timeline": [
-            {"timestamp": e.timestamp.isoformat(), "event_type": e.event_type, "severity": e.severity,
-             "message": e.message, "username": e.username, "source": e.source, "destination": e.destination}
+            {"timestamp": e.timestamp.isoformat(), "offset_sec": e.offset_sec,
+             "title": e.event_type, "description": e.message, "severity": e.severity,
+             "event_type": e.event_type, "message": e.message,
+             "username": e.username, "source": e.source, "destination": e.destination}
             for e in events
         ],
         "detected_indicators": [
