@@ -22,7 +22,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://cybersoc:${DB_PASSWORD:-changeme-in-production}@db:5432/cybersoc
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-this-to-a-long-random-secret}
-      JWT_EXPIRE_MIN: "720"
+      JWT_EXPIRE_MINUTES: "720"
       SEED_DEMO_USERS: "true"
       CORS_ORIGINS: '["http://localhost:8080", "http://localhost"]'
     depends_on:
