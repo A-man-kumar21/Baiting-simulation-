@@ -30,6 +30,25 @@ def list_alerts(sim_id: int, status: str | None = Query(None), severity: str | N
     return {"items": query.offset(skip).limit(limit).all(), "total": query.count()}
 
 
+@router.get("/alerts", response_model=Paginated[AlertOut])
+def list_all_alerts(status: str | None = Query(None), severity: str | None = Query(None),
+                    simulation_id: int | None = Query(None),
+                    skip: int = 0, limit: int = 100,
+                    db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Alert queue across simulations. Analysts see their own simulations' alerts; admins see all."""
+    query = db.query(Alert).join(SimulationSession, Alert.simulation_id == SimulationSession.id)
+    if user.role != "ADMIN":
+        query = query.filter(SimulationSession.analyst_id == user.id)
+    if simulation_id is not None:
+        query = query.filter(Alert.simulation_id == simulation_id)
+    if status:
+        query = query.filter(Alert.status == status)
+    if severity:
+        query = query.filter(Alert.severity == severity)
+    query = query.order_by(Alert.created_at.desc())
+    return {"items": query.offset(skip).limit(limit).all(), "total": query.count()}
+
+
 @router.get("/alerts/{alert_id}", response_model=AlertDetailOut)
 def alert_detail(alert_id: int, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     alert = db.get(Alert, alert_id)

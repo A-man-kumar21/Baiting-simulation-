@@ -48,6 +48,7 @@ Event: `{id, simulation_id, timestamp, event_type, severity, source, destination
 ## Alerts (`tag: Alerts`)
 Alert: `{id, simulation_id, event_id, severity, category, title, description, status, created_at, rule_id}`.
 - `GET /api/simulations/{id}/alerts?status=&severity=` → list.
+- `GET /api/alerts?status=&severity=&simulation_id=&skip=&limit=` → paginated alert queue across simulations (analysts: own simulations only; admins: all).
 - `GET /api/alerts/{id}` → `{alert, event, related_alerts[], related_events[], mitre_techniques[]}`.
 - `PATCH /api/alerts/{id}` `{status}` — allowed: NEW→ACKNOWLEDGED→INVESTIGATING→RESOLVED, any→FALSE_POSITIVE.
 
@@ -62,7 +63,7 @@ Incident: `{id, simulation_id, analyst_id, title, description, severity, status,
 
 ## Analytics (`tag: Analytics`)
 - `GET /api/analytics/overview` (ADMIN) → `{totals, avg_times, success_rates, common_mistakes[], attack_distribution[], difficulty_stats[]}`.
-- `GET /api/analytics/me` → analyst personal stats + history.
+- `GET /api/analytics/me` → analyst personal stats + history: `{totals: {simulations, completed, avg_score, best_score, alerts_acknowledged, avg_time_to_detect_sec, avg_time_to_contain_sec}, running[]: {id, scenario_name, status, alerts_raised}, history[]: {id, scenario_name, status, score{total,grade,…}, time_to_detect_sec, time_to_contain_sec, started_at, completed_at}}`.
 
 ## MITRE (`tag: MITRE`)
 - `GET /api/mitre/techniques` → `[{technique_id, name, description}]`.

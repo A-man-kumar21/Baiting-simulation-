@@ -31,6 +31,7 @@ class EventOut(ORMModel):
     id: int
     simulation_id: int
     timestamp: datetime
+    offset_sec: float = 0.0
     event_type: str
     severity: str
     source: str | None

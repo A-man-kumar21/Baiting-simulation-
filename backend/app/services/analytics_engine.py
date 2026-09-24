@@ -87,25 +87,40 @@ def analyst_stats(db: Session, analyst_id: int) -> dict:
     scores = [s for s in scores if s is not None]
 
     ttd, ttc = [], []
-    fp_count = missed = 0
-    for s in completed:
-        alerts = db.query(Alert).filter(Alert.simulation_id == s.id).all()
-        actions = db.query(Action).filter(Action.simulation_id == s.id).all()
-        t = _compute_times(s, alerts, actions)
-        ttd.append(t["ttd_sec"]); ttc.append(t["ttc_sec"])
-        fp_count += sum(1 for a in alerts if a.status == "FALSE_POSITIVE")
-        missed += sum(1 for a in alerts if a.status == "NEW" and a.severity in ("HIGH", "CRITICAL"))
-
+    fp_count = missed = triaged = 0
+    running = []
     history = []
     for s in sessions:
         sc = db.get(Scenario, s.scenario_id)
+        alerts = db.query(Alert).filter(Alert.simulation_id == s.id).all()
+        actions = db.query(Action).filter(Action.simulation_id == s.id).all()
+        if s.status == "COMPLETED":
+            t = _compute_times(s, alerts, actions)
+            ttd.append(t["ttd_sec"]); ttc.append(t["ttc_sec"])
+            fp_count += sum(1 for a in alerts if a.status == "FALSE_POSITIVE")
+            missed += sum(1 for a in alerts if a.status == "NEW" and a.severity in ("HIGH", "CRITICAL"))
+            sess_ttd, sess_ttc = t["ttd_sec"], t["ttc_sec"]
+        else:
+            sess_ttd = sess_ttc = None
+        triaged += sum(1 for a in alerts if a.status != "NEW")
+        if s.status in ("RUNNING", "PAUSED"):
+            running.append({
+                "id": s.id,
+                "scenario_name": sc.name if sc else "?",
+                "status": s.status,
+                "alerts_raised": len(alerts),
+            })
         history.append({
+            "id": s.id,
             "simulation_id": s.id,
             "scenario_name": sc.name if sc else "?",
             "status": s.status,
-            "score": (s.score or {}).get("total"),
+            "score": s.score,
             "grade": (s.score or {}).get("grade"),
+            "time_to_detect_sec": sess_ttd,
+            "time_to_contain_sec": sess_ttc,
             "started_at": s.started_at.isoformat() if s.started_at else None,
+            "completed_at": s.completed_at.isoformat() if s.completed_at else None,
         })
     return {
         "totals": {
@@ -113,11 +128,15 @@ def analyst_stats(db: Session, analyst_id: int) -> dict:
             "completed": len(completed),
             "avg_score": round(sum(scores) / len(scores), 1) if scores else None,
             "best_score": max(scores) if scores else None,
+            "alerts_acknowledged": triaged,
+            "avg_time_to_detect_sec": _avg(ttd),
+            "avg_time_to_contain_sec": _avg(ttc),
         },
         "avg_times_sec": {"ttd": _avg(ttd), "ttc": _avg(ttc)},
         "accuracy": {
             "false_positives": fp_count,
             "missed_critical_alerts": missed,
         },
+        "running": running,
         "history": history,
     }
