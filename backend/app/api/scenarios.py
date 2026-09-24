@@ -62,7 +62,7 @@ def _resolve_techniques(db: Session, technique_ids: list[str]) -> list[MitreTech
     for tid in technique_ids:
         t = db.query(MitreTechnique).filter(MitreTechnique.technique_id == tid).first()
         if not t:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"Unknown MITRE technique {tid}")
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"Unknown MITRE technique {tid}")
         out.append(t)
     return out
 

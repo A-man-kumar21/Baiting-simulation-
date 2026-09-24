@@ -23,7 +23,7 @@ def register(body: RegisterIn, db: Session = Depends(get_db)):
     try:
         pw_hash = hash_password(body.password)
     except ValueError as e:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e))
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(e))
     user = User(name=body.name.strip(), email=email, password_hash=pw_hash, role=role)
     db.add(user)
     db.commit()
