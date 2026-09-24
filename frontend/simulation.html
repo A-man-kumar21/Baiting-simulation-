@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CyberSOC — Live simulation</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<script src="/js/api.js"></script>
+<script src="/js/app.js"></script>
+<script>
+document.body.insertAdjacentHTML("afterbegin", App.shell({
+  title: "Live simulation",
+  subtitle: "Events stream in as the attack unfolds. Triage alerts, investigate, respond.",
+  actions: `<span id="ctrl"></span>`,
+}));
+App.renderNav();
+const simId = new URLSearchParams(location.search).get("id");
+let lastEventId = 0, pollTimer = null, autoPoll = true, simStatus = "RUNNING";
+
+function eventHtml(e) {
+  return `<div class="event sev-${e.severity}" data-eid="${e.id}">
+    <div><span class="mono" style="color:var(--muted)">t+${Math.round(e.offset_sec)}s</span>
+    <b>${App.esc(e.event_type)}</b> ${App.badge(e.severity)}</div>
+    <div>${App.esc(e.message)}</div>
+    <div class="meta">${e.source ? `<span>src <span class="mono">${App.esc(e.source)}</span></span>` : ""}
+      ${e.destination ? `<span>dst <span class="mono">${App.esc(e.destination)}</span></span>` : ""}
+      ${e.username ? `<span>user <span class="mono">${App.esc(e.username)}</span></span>` : ""}
+      ${e.device ? `<span>host <span class="mono">${App.esc(e.device)}</span></span>` : ""}
+      <span>${App.fmtDate(e.timestamp)}</span></div></div>`;
+}
+
+async function refreshStatus() {
+  const s = await API.get(`/simulations/${simId}`);
+  simStatus = s.status;
+  document.querySelector(".page-head h1").textContent = s.scenario_name;
+  document.querySelector(".page-head p").textContent =
+    `Session #${s.id} · ${App.fmtDur(s.sim_elapsed_sec)} elapsed · ${s.events_emitted} events · ${s.alerts_raised} alerts · ${s.speed}× speed`;
+  const running = s.status === "RUNNING", paused = s.status === "PAUSED";
+  document.getElementById("ctrl").innerHTML = `
+    ${App.badge(s.status)}
+    ${running ? `<button class="btn small" id="b-pause">⏸ Pause</button>` : ""}
+    ${paused ? `<button class="btn small primary" id="b-resume">▶ Resume</button>` : ""}
+    ${(running || paused) ? `<button class="btn small" id="b-restart">↺ Restart</button>
+      <button class="btn small" id="b-complete">✔ Complete</button>
+      <button class="btn small danger" id="b-abort">✖ Abort</button>` : ""}
+    ${s.status === "COMPLETED" && s.score ? `<a class="btn small primary" href="/reports.html#${s.id}">📄 Report (score ${s.score.total})</a>` : ""}`;
+  const bind = (id, fn) => { const b = document.getElementById(id); if (b) b.onclick = fn; };
+  bind("b-pause", async () => { await API.post(`/simulations/${simId}/pause`); App.toast("Simulation paused", "ok"); poll(); });
+  bind("b-resume", async () => { await API.post(`/simulations/${simId}/resume`); App.toast("Simulation resumed", "ok"); poll(); });
+  bind("b-restart", async () => { if (confirm("Restart? All events, alerts and incidents will be wiped.")) { await API.post(`/simulations/${simId}/restart`); lastEventId = 0; document.getElementById("feed").innerHTML = ""; document.getElementById("alerts").innerHTML = ""; poll(); } });
+  bind("b-complete", async () => { const r = await API.post(`/simulations/${simId}/complete`); App.toast(`Completed — score ${r.score.total} (${r.score.grade})`, "ok"); poll(); });
+  bind("b-abort", async () => { if (confirm("Abort this simulation?")) { await API.post(`/simulations/${simId}/abort`); App.toast("Simulation aborted"); poll(); } });
+  return s;
+}
+
+async function poll() {
+  if (!autoPoll) return;
+  try {
+    const [feed, alerts] = await Promise.all([
+      API.get(`/simulations/${simId}/feed?since_event_id=${lastEventId}`),
+      API.get(`/simulations/${simId}/alerts`),
+    ]);
+    simStatus = feed.status;
+    const box = document.getElementById("feed");
+    if (lastEventId === 0 && feed.events.length === 0)
+      box.innerHTML = `<div class="empty">Waiting for the first simulated event…</div>`;
+    else if (lastEventId === 0) box.innerHTML = "";
+    for (const e of feed.events) { box.insertAdjacentHTML("beforeend", eventHtml(e)); lastEventId = Math.max(lastEventId, e.id); }
+    box.scrollTop = box.scrollHeight;
+    document.getElementById("alerts").innerHTML = alerts.items.length ? alerts.items.map((a) => `
+      <div style="padding:8px 0;border-bottom:1px solid var(--border)">
+        <div>${App.badge(a.severity)} <b>${App.esc(a.title)}</b></div>
+        <div style="color:var(--muted);font-size:12.5px">${App.esc(a.description)}</div>
+        <div style="margin-top:4px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          ${App.badge(a.status)}
+          <button class="btn small" data-ack="${a.id}" ${a.status !== "NEW" ? "disabled" : ""}>Acknowledge</button>
+          <button class="btn small" data-inv="${a.id}" ${!["NEW", "ACKNOWLEDGED"].includes(a.status) ? "disabled" : ""}>Investigate</button>
+        </div></div>`).join("") : `<div class="empty">No alerts yet.</div>`;
+    document.querySelectorAll("[data-ack]").forEach((b) => b.onclick = async () => {
+      await API.patch(`/alerts/${b.dataset.ack}`, { status: "ACKNOWLEDGED" }); App.toast("Alert acknowledged", "ok"); poll(); });
+    document.querySelectorAll("[data-inv]").forEach((b) => b.onclick = async () => {
+      await API.patch(`/alerts/${b.dataset.inv}`, { status: "INVESTIGATING" }); App.toast("Alert under investigation", "ok"); poll(); });
+    await refreshStatus();
+  } catch (e) { /* transient; keep polling */ }
+}
+
+async function loadAssets() {
+  try {
+    const s = await API.get(`/simulations/${simId}`);
+    // assets come via incident detail; fetch story endpoint instead
+    const story = await API.get(`/simulations/${simId}/story`);
+    const env = (story.definition || {}).environment || {};
+    document.getElementById("env").innerHTML = `<pre class="code">${App.esc(JSON.stringify(env, null, 2))}</pre>`;
+  } catch (e) { document.getElementById("env").innerHTML = `<div class="empty">—</div>`; }
+}
+
+async function askAI() {
+  const q = document.getElementById("ai-q").value.trim();
+  if (!q) return;
+  const out = document.getElementById("ai-a");
+  out.innerHTML = `<div class="loading">Thinking…</div>`;
+  try {
+    const r = await API.post("/ai/assist", { simulation_id: parseInt(simId, 10), question: q });
+    out.innerHTML = `<p>${App.esc(r.answer).replace(/\n/g, "<br>")}</p>
+      ${r.suggested_actions?.length ? `<b>Suggested (simulated) actions:</b><ul class="mono">${r.suggested_actions.map((a) => `<li>${App.esc(a)}</li>`).join("")}</ul>` : ""}
+      <p style="color:var(--muted);font-size:12px">${App.esc(r.disclaimer)}</p>`;
+  } catch (e) { out.innerHTML = `<p style="color:var(--red)">${App.esc(e.message)}</p>`; }
+}
+
+(async () => {
+  const me = await App.guard();
+  if (!me || !simId) return;
+  document.getElementById("page").innerHTML = `
+    <div class="grid" style="grid-template-columns: 1.6fr 1fr">
+      <div class="card"><h3>📡 Event stream <label style="display:inline;font-weight:400"><input type="checkbox" id="autopoll" checked style="width:auto"> auto-refresh</label></h3>
+        <div class="filters"><div><label>Search</label><input id="f-q" placeholder="text, IP, user…"></div>
+        <div><label>Type</label><input id="f-type" placeholder="LOGIN_FAILURE"></div>
+        <div><label>Severity</label><select id="f-sev"><option value="">All</option><option>LOW</option><option>MEDIUM</option><option>HIGH</option><option>CRITICAL</option></select></div>
+        <div><button class="btn small" id="f-go">Filter</button></div></div>
+        <div class="feed" id="feed"><div class="loading">Connecting to event stream…</div></div></div>
+      <div>
+        <div class="card"><h3>🚨 Alerts</h3><div id="alerts"><div class="loading">…</div></div>
+          <div class="btn-row" style="margin-top:10px"><a class="btn small" href="/incidents.html">Manage incidents</a></div></div>
+        <div class="card" style="margin-top:16px"><h3>🖥 Simulated environment</h3><div id="env"></div></div>
+        <div class="card ai-box" style="margin-top:16px"><h3>🤖 SOC assistant <small style="color:var(--muted)">(rule-based)</small></h3>
+          <div class="btn-row"><input id="ai-q" placeholder="e.g. What should I do about these alerts?" style="flex:1">
+          <button class="btn small primary" id="ai-go">Ask</button></div>
+          <div id="ai-a" style="margin-top:8px;font-size:13px"></div></div>
+      </div>
+    </div>`;
+  document.getElementById("autopoll").onchange = (e) => { autoPoll = e.target.checked; if (autoPoll) poll(); };
+  document.getElementById("ai-go").onclick = askAI;
+  document.getElementById("ai-q").addEventListener("keydown", (e) => { if (e.key === "Enter") askAI(); });
+  document.getElementById("f-go").onclick = async () => {
+    const p = new URLSearchParams({ limit: 200 });
+    const q = document.getElementById("f-q").value.trim();
+    const t = document.getElementById("f-type").value.trim();
+    const s = document.getElementById("f-sev").value;
+    if (q) p.set("q", q); if (t) p.set("event_type", t); if (s) p.set("severity", s);
+    const r = await API.get(`/simulations/${simId}/events?${p}`);
+    const box = document.getElementById("feed");
+    box.innerHTML = r.items.length ? "" : `<div class="empty">No events match.</div>`;
+    r.items.forEach((e) => box.insertAdjacentHTML("beforeend", eventHtml(e)));
+    autoPoll = false; document.getElementById("autopoll").checked = false;
+    App.toast("Showing filtered history — auto-refresh paused", "ok");
+  };
+  await loadAssets();
+  await poll();
+  pollTimer = setInterval(poll, 2500);
+})();
+</script>
+</body>
+</html>

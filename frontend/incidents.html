@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CyberSOC — Incidents</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<script src="/js/api.js"></script>
+<script src="/js/app.js"></script>
+<script>
+document.body.insertAdjacentHTML("afterbegin", App.shell({
+  title: "Incidents",
+  subtitle: "Correlate alerts into cases, drive the response lifecycle, take simulated actions.",
+  actions: `<button class="btn primary" id="btn-new">＋ New incident</button>`,
+}));
+App.renderNav();
+let skip = 0; const limit = 20;
+
+async function load() {
+  const el = document.getElementById("page");
+  const p = new URLSearchParams({ skip, limit });
+  const st = document.getElementById("f-status").value;
+  if (st) p.set("status", st);
+  el.querySelector("#rows").innerHTML = `<tr><td colspan="7"><div class="loading">Loading…</div></td></tr>`;
+  const r = await API.get(`/incidents?${p}`);
+  el.querySelector("#rows").innerHTML = r.items.length ? r.items.map((i) => `
+    <tr><td class="mono">#${i.id}</td><td>#${i.simulation_id}</td>
+      <td><a href="/incident.html?id=${i.id}"><b>${App.esc(i.title)}</b></a></td>
+      <td>${App.badge(i.severity)}</td><td>${App.badge(i.status)}</td>
+      <td>${i.alert_ids.length} alerts</td><td style="white-space:nowrap">${App.fmtDate(i.updated_at)}</td></tr>`).join("")
+    : `<tr><td colspan="7"><div class="empty">No incidents yet. Create one from triaged alerts.</div></td></tr>`;
+  App.paginate(el.querySelector("#pager"), r.total, skip, limit, (s) => { skip = s; load(); });
+}
+
+(async () => {
+  const me = await App.guard();
+  if (!me) return;
+  document.getElementById("page").innerHTML = `
+    <div class="card"><div class="filters">
+      <div><label>Status</label><select id="f-status"><option value="">All</option><option>OPEN</option><option>INVESTIGATING</option><option>CONFIRMED</option><option>CONTAINED</option><option>RESOLVED</option></select></div>
+      <div><button class="btn small primary" id="f-go">Apply</button></div></div>
+      <table><tr><th>ID</th><th>Sim</th><th>Title</th><th>Severity</th><th>Status</th><th>Alerts</th><th>Updated</th></tr>
+      <tbody id="rows"></tbody></table><div id="pager"></div></div>
+    <div class="card" id="new-card" style="display:none;margin-top:16px"><h3>New incident</h3>
+      <label>Simulation #</label><input id="n-sim" type="number" min="1">
+      <label>Title</label><input id="n-title">
+      <label>Description</label><textarea id="n-desc"></textarea>
+      <label>Severity</label><select id="n-sev"><option>LOW</option><option>MEDIUM</option><option selected>HIGH</option><option>CRITICAL</option></select>
+      <label>Alert IDs (comma-separated, from the same simulation)</label><input id="n-alerts" placeholder="e.g. 4,5,6">
+      <div class="btn-row" style="margin-top:12px"><button class="btn primary" id="n-go">Create incident</button></div></div>`;
+  document.getElementById("f-go").onclick = () => { skip = 0; load(); };
+  document.getElementById("btn-new").onclick = () => {
+    const c = document.getElementById("new-card");
+    c.style.display = c.style.display === "none" ? "" : "none";
+  };
+  document.getElementById("n-go").onclick = async () => {
+    try {
+      const ids = document.getElementById("n-alerts").value.split(",").map((x) => parseInt(x.trim(), 10)).filter(Number.isFinite);
+      const r = await API.post("/incidents", {
+        simulation_id: parseInt(document.getElementById("n-sim").value, 10),
+        title: document.getElementById("n-title").value.trim(),
+        description: document.getElementById("n-desc").value.trim(),
+        severity: document.getElementById("n-sev").value,
+        alert_ids: ids,
+      });
+      location.href = "/incident.html?id=" + r.id;
+    } catch (e) { App.toast(e.message, "err"); }
+  };
+  load();
+})();
+</script>
+</body>
+</html>

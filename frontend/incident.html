@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CyberSOC — Incident detail</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<script src="/js/api.js"></script>
+<script src="/js/app.js"></script>
+<script>
+document.body.insertAdjacentHTML("afterbegin", App.shell({
+  title: "Incident",
+  actions: `<a class="btn" href="/incidents.html">← All incidents</a><span id="trans"></span>`,
+}));
+App.renderNav();
+const incId = new URLSearchParams(location.search).get("id");
+const NEXT = { OPEN: ["INVESTIGATING"], INVESTIGATING: ["CONFIRMED"], CONFIRMED: ["CONTAINED"], CONTAINED: ["RESOLVED"] };
+
+async function load() {
+  const el = document.getElementById("page");
+  const d = await API.get(`/incidents/${incId}`);
+  const inc = d.incident;
+  document.querySelector(".page-head h1").textContent = `#${inc.id} ${inc.title}`;
+  document.querySelector(".page-head p").textContent = `Simulation #${inc.simulation_id} · opened ${App.fmtDate(inc.created_at)}`;
+  document.getElementById("trans").innerHTML =
+    (NEXT[inc.status] || []).map((s) => `<button class="btn small primary" data-t="${s}">→ ${s}</button>`).join("");
+  document.querySelectorAll("[data-t]").forEach((b) => b.onclick = async () => {
+    try { await API.patch(`/incidents/${incId}`, { status: b.dataset.t }); App.toast("Incident → " + b.dataset.t, "ok"); load(); }
+    catch (e) { App.toast(e.message, "err"); }
+  });
+
+  el.innerHTML = `
+    <div style="margin-bottom:14px">${App.badge(inc.severity)} ${App.badge(inc.status)}</div>
+    <div class="grid" style="grid-template-columns: 1.5fr 1fr">
+      <div>
+        <div class="card"><h3>🕒 Investigation timeline</h3><div class="timeline">
+          ${d.timeline.map((t) => `<div class="tl-item k-${t.kind}"><div class="ts">${App.fmtDate(t.timestamp)}</div>
+            <b>${App.esc(t.title)}</b><div style="color:var(--muted);font-size:12.5px">${App.esc(t.detail || "")}</div></div>`).join("")}
+        </div></div>
+        <div class="card" style="margin-top:16px"><h3>🚨 Correlated alerts (${d.alerts.length})</h3>
+          ${d.alerts.map((a) => `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
+            ${App.badge(a.severity)} <b>${App.esc(a.title)}</b> ${App.badge(a.status)}</div>`).join("") || `<div class="empty">None yet.</div>`}
+          <div class="btn-row" style="margin-top:10px"><input id="c-ids" placeholder="Correlate alert IDs: 7,8" style="flex:1">
+          <button class="btn small" id="c-go">Correlate</button></div></div>
+        <div class="card" style="margin-top:16px"><h3>🎯 MITRE techniques</h3>
+          ${d.mitre_techniques.map((t) => `<span class="badge b-INFO" style="margin:0 4px 4px 0" title="${App.esc(t.name)}">${App.esc(t.technique_id)}</span>`).join("")}</div>
+      </div>
+      <div>
+        <div class="card"><h3>⚡ Response actions <small style="color:var(--muted)">(simulated)</small></h3>
+          <label>Action</label><select id="a-type">
+            <option>DISABLE_USER</option><option>BLOCK_IP</option><option>ISOLATE_ENDPOINT</option>
+            <option>REVOKE_SESSION</option><option>RESET_CREDENTIAL</option><option>ESCALATE_INCIDENT</option>
+            <option>MARK_FALSE_POSITIVE</option><option>RESOLVE_INCIDENT</option></select>
+          <label>Target (user / IP / endpoint, or alert:ID)</label><input id="a-target" placeholder="employee_42">
+          <div class="btn-row" style="margin-top:10px"><button class="btn primary small" id="a-go">Execute (simulated)</button></div>
+          <div id="a-out" style="margin-top:8px;font-size:13px;color:var(--muted)"></div>
+          <h3 style="margin-top:14px">Action log</h3>
+          ${d.actions.map((a) => `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
+            <span class="mono">${App.esc(a.action_type)}</span> → <span class="mono">${App.esc(a.target)}</span>
+            <div style="color:var(--muted);font-size:12px">${App.esc(a.result || "")}</div></div>`).join("") || `<div class="empty">No actions yet.</div>`}
+        </div>
+        <div class="card" style="margin-top:16px"><h3>🖥 Simulated assets</h3>
+          ${d.assets.map((a) => `<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px">
+            <span class="badge b-INFO">${App.esc(a.asset_type)}</span> <span class="mono">${App.esc(a.identifier)}</span><br>
+            status: <b>${App.esc(a.status)}</b></div>`).join("")}</div>
+        <div class="card ai-box" style="margin-top:16px"><h3>🤖 Assistant</h3>
+          <div class="btn-row"><input id="ai-q" placeholder="What should I do next?" style="flex:1">
+          <button class="btn small primary" id="ai-go">Ask</button></div>
+          <div id="ai-a" style="margin-top:8px;font-size:13px"></div></div>
+      </div>
+    </div>`;
+  document.getElementById("a-go").onclick = async () => {
+    const out = document.getElementById("a-out");
+    try {
+      const r = await API.post(`/incidents/${incId}/actions`, {
+        action_type: document.getElementById("a-type").value,
+        target: document.getElementById("a-target").value.trim(),
+      });
+      out.innerHTML = `<span style="color:var(--green)">✔ ${App.esc(r.result)}</span>`;
+      App.toast("Action executed (simulated)", "ok");
+      setTimeout(load, 600);
+    } catch (e) { out.innerHTML = `<span style="color:var(--red)">${App.esc(e.message)}</span>`; }
+  };
+  document.getElementById("c-go").onclick = async () => {
+    const ids = document.getElementById("c-ids").value.split(",").map((x) => parseInt(x.trim(), 10)).filter(Number.isFinite);
+    try { await API.post(`/incidents/${incId}/alerts`, { alert_ids: ids }); App.toast("Alerts correlated", "ok"); load(); }
+    catch (e) { App.toast(e.message, "err"); }
+  };
+  const ask = async () => {
+    const q = document.getElementById("ai-q").value.trim(); if (!q) return;
+    const out = document.getElementById("ai-a"); out.innerHTML = `<div class="loading">…</div>`;
+    try {
+      const r = await API.post("/ai/assist", { incident_id: parseInt(incId, 10), question: q });
+      out.innerHTML = `<p>${App.esc(r.answer).replace(/\n/g, "<br>")}</p>
+        ${r.suggested_actions?.length ? `<b class="mono">Suggested:</b><ul class="mono">${r.suggested_actions.map((a) => `<li>${App.esc(a)}</li>`).join("")}</ul>` : ""}
+        <p style="color:var(--muted);font-size:12px">${App.esc(r.disclaimer)}</p>`;
+    } catch (e) { out.innerHTML = `<p style="color:var(--red)">${App.esc(e.message)}</p>`; }
+  };
+  document.getElementById("ai-go").onclick = ask;
+}
+
+(async () => {
+  const me = await App.guard();
+  if (!me || !incId) return;
+  try { await load(); }
+  catch (e) { document.getElementById("page").innerHTML = `<div class="empty">${App.esc(e.message)}</div>`; }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CyberSOC — Scenario editor</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<script src="/js/api.js"></script>
+<script src="/js/app.js"></script>
+<script>
+document.body.insertAdjacentHTML("afterbegin", App.shell({
+  title: "Scenario editor",
+  subtitle: "Admin only. The definition JSON drives the simulation engine (story, event_sequence, alert_rules, expected_actions, mitre_ids).",
+  actions: `<a class="btn" href="/scenarios.html">← Scenarios</a><span id="del-wrap"></span>`,
+}));
+App.renderNav();
+const sid = new URLSearchParams(location.search).get("id");
+
+const TEMPLATE = {
+  story: "Describe the fictional setting…",
+  environment: { victim: "employee_99", attacker_ip: "198.51.100.99", devices: ["WS-1099"] },
+  event_sequence: [
+    { offset_sec: 10, event_type: "LOGIN_FAILURE", severity: "LOW", message: "Failed login for employee_99", source: "198.51.100.99", username: "employee_99", device: "WS-1099" }
+  ],
+  alert_rules: [
+    { id: "custom-1", type: "count", event_type: "LOGIN_FAILURE", window_sec: 120, threshold: 5, severity: "MEDIUM", title: "Custom rule fired", description: "…" }
+  ],
+  attack_chain: ["Reconnaissance", "Exploitation"],
+  mitre_ids: ["T1110"],
+  expected_actions: ["DISABLE_USER:employee_99"],
+  wrong_actions: ["MARK_FALSE_POSITIVE on the real alert"],
+  expected_severity: "HIGH",
+  estimated_duration_min: 8,
+};
+
+(async () => {
+  const me = await App.guard({ adminOnly: true });
+  if (!me) return;
+  const el = document.getElementById("page");
+  let existing = null;
+  if (sid) {
+    try { existing = await API.get(`/scenarios/${sid}`); }
+    catch (e) { el.innerHTML = `<div class="empty">${App.esc(e.message)}</div>`; return; }
+    document.getElementById("del-wrap").innerHTML = `<button class="btn danger" id="btn-del">Delete</button>`;
+    document.getElementById("btn-del").onclick = async () => {
+      if (!confirm("Delete this scenario?")) return;
+      await API.del(`/scenarios/${sid}`);
+      location.href = "/scenarios.html";
+    };
+  }
+  const techs = await API.get("/mitre/techniques");
+  el.innerHTML = `
+    <div class="card"><div class="grid c2">
+      <div><label>Name</label><input id="e-name" value="${App.esc(existing?.name || "")}">
+      <label>Attack type</label><input id="e-attack" value="${App.esc(existing?.attack_type || "")}">
+      <label>Difficulty</label><select id="e-diff">${["Easy", "Medium", "Hard", "Expert"].map((d) =>
+        `<option ${existing?.difficulty === d ? "selected" : ""}>${d}</option>`).join("")}</select>
+      <label>MITRE techniques</label><select id="e-tech" multiple size="8">${techs.map((t) =>
+        `<option value="${t.technique_id}" ${existing?.techniques?.some((x) => x.technique_id === t.technique_id) ? "selected" : ""}>${t.technique_id} — ${App.esc(t.name)}</option>`).join("")}</select></div>
+      <div><label>Description</label><textarea id="e-desc" style="min-height:120px">${App.esc(existing?.description || "")}</textarea>
+      <p style="color:var(--muted);font-size:12px">All IPs must be private/test-net (10/8, 192.168/16, 192.0.2/24, 198.51.100/24, 203.0.113/24). Nothing here executes — it only schedules fictional events.</p></div>
+    </div>
+    <label>Definition JSON</label><textarea id="e-def" class="mono" style="min-height:340px">${App.esc(JSON.stringify(existing?.definition || TEMPLATE, null, 2))}</textarea>
+    <div class="btn-row" style="margin-top:12px"><button class="btn primary" id="e-save">${sid ? "Save changes" : "Create scenario"}</button>
+    <span id="e-err" style="color:var(--red)"></span></div></div>`;
+  document.getElementById("e-save").onclick = async () => {
+    const err = document.getElementById("e-err"); err.textContent = "";
+    let def;
+    try { def = JSON.parse(document.getElementById("e-def").value); }
+    catch { err.textContent = "Definition is not valid JSON."; return; }
+    const body = {
+      name: document.getElementById("e-name").value.trim(),
+      description: document.getElementById("e-desc").value.trim(),
+      attack_type: document.getElementById("e-attack").value.trim() || "Custom",
+      difficulty: document.getElementById("e-diff").value,
+      definition: def,
+      technique_ids: [...document.getElementById("e-tech").selectedOptions].map((o) => o.value),
+    };
+    try {
+      const r = sid ? await API.put(`/scenarios/${sid}`, body) : await API.post("/scenarios", body);
+      App.toast("Scenario saved", "ok");
+      location.href = "/scenario.html?id=" + r.id;
+    } catch (e) { err.textContent = e.message; }
+  };
+})();
+</script>
+</body>
+</html>

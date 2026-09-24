@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CyberSOC — Scenario briefing</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<script src="/js/api.js"></script>
+<script src="/js/app.js"></script>
+<script>
+document.body.insertAdjacentHTML("afterbegin", App.shell({
+  title: "Scenario briefing",
+  actions: `<a class="btn" href="/scenarios.html">← All scenarios</a><span id="start-wrap"></span>`,
+}));
+App.renderNav();
+const sid = new URLSearchParams(location.search).get("id");
+
+(async () => {
+  const me = await App.guard();
+  if (!me || !sid) return;
+  const el = document.getElementById("page");
+  el.innerHTML = `<div class="loading">Loading briefing…</div>`;
+  try {
+    const s = await API.get(`/scenarios/${sid}`);
+    const d = s.definition || {};
+    document.querySelector(".page-head h1").textContent = s.name;
+    document.getElementById("start-wrap").innerHTML = `
+      <select id="speed" style="width:auto">
+        <option value="1">1× speed</option><option value="4">4× speed</option>
+        <option value="16">16× speed</option><option value="60">60× speed</option>
+      </select>
+      <button class="btn primary" id="btn-start">▶ Start simulation</button>`;
+    document.getElementById("btn-start").onclick = async (e) => {
+      e.target.disabled = true;
+      try {
+        const sim = await API.post("/simulations", {
+          scenario_id: s.id, speed: parseFloat(document.getElementById("speed").value),
+        });
+        location.href = "/simulation.html?id=" + sim.id;
+      } catch (ex) { App.toast(ex.message, "err"); e.target.disabled = false; }
+    };
+    const env = d.environment || {};
+    el.innerHTML = `
+      <div class="grid c2">
+        <div class="card"><h3>📖 Story</h3><p>${App.esc(d.story || "—")}</p>
+          <h3 style="margin-top:14px">🖥 Environment (simulated)</h3>
+          <pre class="code">${App.esc(JSON.stringify(env, null, 2))}</pre></div>
+        <div class="card"><h3>⛓ Attack chain</h3>
+          <div class="chain">${(d.attack_chain || []).map((st) =>
+            `<span class="step">${App.esc(st)}</span>`).join(`<span class="arrow">→</span>`) || "—"}</div>
+          <h3 style="margin-top:14px">🎯 MITRE ATT&CK</h3>
+          ${(s.techniques || []).map((t) => `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
+            <span class="badge b-INFO">${App.esc(t.technique_id)}</span> <b>${App.esc(t.name)}</b>
+            <div style="color:var(--muted);font-size:12.5px">${App.esc(t.description || "")}</div></div>`).join("") || "—"}
+          <h3 style="margin-top:14px">ℹ Details</h3>
+          <dl class="kv"><dt>Attack type</dt><dd>${App.esc(s.attack_type)}</dd>
+          <dt>Difficulty</dt><dd>${App.badge(s.difficulty || "Medium")}</dd>
+          <dt>Est. duration</dt><dd>${App.esc(d.estimated_duration_min || "—")} min</dd></dl>
+        </div>
+      </div>
+      ${me.role === "ADMIN" && d.expected_actions ? `
+      <div class="card" style="margin-top:16px"><h3>🔑 Expected analyst actions (admin only)</h3>
+        <div class="grid c2"><div><b>Do:</b><ul>${d.expected_actions.map((a) => `<li class="mono">${App.esc(a)}</li>`).join("")}</ul></div>
+        <div><b>Don't:</b><ul>${(d.wrong_actions || []).map((a) => `<li class="mono">${App.esc(a)}</li>`).join("")}</ul></div></div></div>` : ""}`;
+  } catch (e) { el.innerHTML = `<div class="empty">Error: ${App.esc(e.message)}</div>`; }
+})();
+</script>
+</body>
+</html>

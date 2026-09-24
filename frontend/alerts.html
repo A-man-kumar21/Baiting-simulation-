@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CyberSOC — Alerts</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<script src="/js/api.js"></script>
+<script src="/js/app.js"></script>
+<script>
+document.body.insertAdjacentHTML("afterbegin", App.shell({
+  title: "Alert queue",
+  subtitle: "All alerts across your simulations. Acknowledge, investigate, resolve — or mark false positives.",
+}));
+App.renderNav();
+let skip = 0; const limit = 20;
+
+async function load() {
+  const el = document.getElementById("page");
+  const p = new URLSearchParams({ skip, limit });
+  const sev = document.getElementById("f-sev").value;
+  const st = document.getElementById("f-status").value;
+  const sim = document.getElementById("f-sim").value.trim();
+  if (sev) p.set("severity", sev);
+  if (st) p.set("status", st);
+  if (sim) p.set("simulation_id", sim);
+  el.querySelector("#rows").innerHTML = `<tr><td colspan="7"><div class="loading">Loading…</div></td></tr>`;
+  try {
+    const r = await API.get(`/alerts?${p}`);
+    el.querySelector("#rows").innerHTML = r.items.length ? r.items.map((a) => `
+      <tr><td class="mono">#${a.id}</td><td>#${a.simulation_id}</td>
+        <td><b>${App.esc(a.title)}</b><br><small style="color:var(--muted)">${App.esc((a.description || "").slice(0, 80))}</small></td>
+        <td>${App.badge(a.severity)}</td><td>${App.badge(a.status)}</td>
+        <td style="white-space:nowrap">${App.fmtDate(a.created_at)}</td>
+        <td style="white-space:nowrap">
+          <div class="btn-row">
+          ${a.status === "NEW" ? `<button class="btn small" data-s="${a.id}:ACKNOWLEDGED">Ack</button>` : ""}
+          ${["NEW", "ACKNOWLEDGED"].includes(a.status) ? `<button class="btn small" data-s="${a.id}:INVESTIGATING">Investigate</button>` : ""}
+          ${["ACKNOWLEDGED", "INVESTIGATING"].includes(a.status) ? `<button class="btn small" data-s="${a.id}:RESOLVED">Resolve</button>
+            <button class="btn small" data-s="${a.id}:FALSE_POSITIVE">False&nbsp;positive</button>` : ""}
+          </div></td></tr>`).join("")
+      : `<tr><td colspan="7"><div class="empty">No alerts match these filters.</div></td></tr>`;
+    el.querySelectorAll("[data-s]").forEach((b) => b.onclick = async () => {
+      const [id, status] = b.dataset.s.split(":");
+      try { await API.patch(`/alerts/${id}`, { status }); App.toast(`Alert #${id} → ${status}`, "ok"); load(); }
+      catch (e) { App.toast(e.message, "err"); }
+    });
+    App.paginate(el.querySelector("#pager"), r.total, skip, limit, (s) => { skip = s; load(); });
+  } catch (e) { el.querySelector("#rows").innerHTML = `<tr><td colspan="7"><div class="empty">${App.esc(e.message)}</div></td></tr>`; }
+}
+
+(async () => {
+  const me = await App.guard();
+  if (!me) return;
+  document.getElementById("page").innerHTML = `
+    <div class="card"><div class="filters">
+      <div><label>Severity</label><select id="f-sev"><option value="">All</option><option>LOW</option><option>MEDIUM</option><option>HIGH</option><option>CRITICAL</option></select></div>
+      <div><label>Status</label><select id="f-status"><option value="">All</option><option>NEW</option><option>ACKNOWLEDGED</option><option>INVESTIGATING</option><option>RESOLVED</option><option>FALSE_POSITIVE</option></select></div>
+      <div><label>Simulation #</label><input id="f-sim" placeholder="e.g. 3"></div>
+      <div><button class="btn small primary" id="f-go">Apply</button></div></div>
+      <table><tr><th>ID</th><th>Sim</th><th>Alert</th><th>Severity</th><th>Status</th><th>Raised</th><th>Actions</th></tr>
+      <tbody id="rows"></tbody></table><div id="pager"></div></div>`;
+  document.getElementById("f-go").onclick = () => { skip = 0; load(); };
+  load();
+})();
+</script>
+</body>
+</html>

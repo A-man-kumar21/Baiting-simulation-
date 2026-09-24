@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CyberSOC — Analytics</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<script src="/js/api.js"></script>
+<script src="/js/app.js"></script>
+<script>
+document.body.insertAdjacentHTML("afterbegin", App.shell({ title: "Analytics", subtitle: "Performance across simulated operations." }));
+App.renderNav();
+const SEVC = { CRITICAL: "#f87171", HIGH: "#fb923c", MEDIUM: "#fbbf24", LOW: "#34d399" };
+
+(async () => {
+  const me = await App.guard();
+  if (!me) return;
+  const el = document.getElementById("page");
+  el.innerHTML = `<div class="loading">Loading analytics…</div>`;
+  try {
+    const mine = await API.get("/analytics/me");
+    let admin = null;
+    if (me.role === "ADMIN") { try { admin = await API.get("/analytics/overview"); } catch (_) {} }
+    const t = mine.totals;
+    el.innerHTML = `
+      <div class="grid c4">
+        <div class="card stat"><div class="num">${t.completed}</div><div class="lbl">Completed</div></div>
+        <div class="card stat"><div class="num">${t.avg_score ?? "—"}</div><div class="lbl">Avg score</div></div>
+        <div class="card stat"><div class="num">${App.fmtDur(t.avg_time_to_detect_sec)}</div><div class="lbl">Avg detect</div></div>
+        <div class="card stat"><div class="num">${App.fmtDur(t.avg_time_to_contain_sec)}</div><div class="lbl">Avg contain</div></div>
+      </div>
+      ${admin ? `
+      <div class="card" style="margin-top:16px"><h3>🌐 Team overview (admin)</h3>
+        <div class="grid c4">
+          <div class="card stat"><div class="num">${admin.totals.users}</div><div class="lbl">Analysts</div></div>
+          <div class="card stat"><div class="num">${admin.totals.simulations}</div><div class="lbl">Simulations</div></div>
+          <div class="card stat"><div class="num">${admin.totals.alerts}</div><div class="lbl">Alerts</div></div>
+          <div class="card stat"><div class="num">${admin.totals.incidents}</div><div class="lbl">Incidents</div></div>
+        </div>
+        <div class="grid c2" style="margin-top:16px">
+          <div><h3>Alerts by severity</h3><canvas id="ch-sev"></canvas></div>
+          <div><h3>Simulations by scenario</h3><canvas id="ch-sc"></canvas></div>
+        </div>
+        <h3 style="margin-top:16px">Per-scenario stats</h3>
+        <table><tr><th>Scenario</th><th>Runs</th><th>Completed</th><th>Avg score</th><th>Avg detect</th></tr>
+        ${admin.scenario_stats.map((s) => `<tr><td>${App.esc(s.scenario_name)}</td><td>${s.runs}</td><td>${s.completed}</td>
+          <td>${s.avg_score ?? "—"}</td><td>${App.fmtDur(s.avg_detect_sec)}</td></tr>`).join("")}</table>
+        ${admin.common_mistakes.length ? `<h3 style="margin-top:16px">Common mistakes</h3><ul>
+          ${admin.common_mistakes.map((m) => `<li>${App.esc(m.mistake)} <span style="color:var(--muted)">×${m.count}</span></li>`).join("")}</ul>` : ""}
+      </div>` : ""}
+      <div class="card" style="margin-top:16px"><h3>📈 My score history</h3><canvas id="ch-me"></canvas></div>
+      <div class="card" style="margin-top:16px"><h3>My runs</h3>
+        <table><tr><th>Scenario</th><th>Status</th><th>Score</th><th>Detect</th><th>Contain</th><th>Finished</th></tr>
+        ${mine.history.map((s) => `<tr><td>${App.esc(s.scenario_name)}</td><td>${App.badge(s.status)}</td>
+          <td>${s.score?.total ?? "—"}</td><td>${App.fmtDur(s.time_to_detect_sec)}</td>
+          <td>${App.fmtDur(s.time_to_contain_sec)}</td><td>${App.fmtDate(s.completed_at)}</td></tr>`).join("") || `<tr><td colspan="6"><div class="empty">No runs yet.</div></td></tr>`}</table></div>`;
+    if (admin) {
+      App.barChart(document.getElementById("ch-sev"),
+        Object.entries(admin.alerts_by_severity || {}).map(([k, v]) => ({ label: k, value: v, color: SEVC[k] })));
+      App.barChart(document.getElementById("ch-sc"),
+        (admin.simulations_by_scenario || []).map((s) => ({ label: s.scenario_name.slice(0, 14), value: s.count })));
+    }
+    const done = mine.history.filter((h) => h.score);
+    App.lineChart(document.getElementById("ch-me"),
+      done.map((h) => h.score.total),
+      done.map((h) => (h.completed_at || "").slice(5, 10)));
+  } catch (e) { el.innerHTML = `<div class="empty">Error: ${App.esc(e.message)}</div>`; }
+})();
+</script>
+</body>
+</html>

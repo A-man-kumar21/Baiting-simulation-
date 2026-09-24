@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CyberSOC — Profile</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<script src="/js/api.js"></script>
+<script src="/js/app.js"></script>
+<script>
+document.body.insertAdjacentHTML("afterbegin", App.shell({
+  title: "Profile",
+  actions: `<span id="admin-link"></span>`,
+}));
+App.renderNav();
+
+(async () => {
+  const me = await App.guard();
+  if (!me) return;
+  if (me.role === "ADMIN") {
+    document.getElementById("admin-link").innerHTML = `<a class="btn" href="/admin.html">🛠 Admin panel</a>`;
+  }
+  const el = document.getElementById("page");
+  el.innerHTML = `<div class="loading">Loading…</div>`;
+  try {
+    const stats = await API.get("/analytics/me");
+    const t = stats.totals;
+    el.innerHTML = `
+      <div class="grid c2">
+        <div class="card"><h3>👤 Account</h3><dl class="kv">
+          <dt>Name</dt><dd>${App.esc(me.name)}</dd><dt>Email</dt><dd class="mono">${App.esc(me.email)}</dd>
+          <dt>Role</dt><dd>${App.badge(me.role)}</dd><dt>Member since</dt><dd>${App.fmtDate(me.created_at)}</dd></dl>
+          <div class="btn-row" style="margin-top:14px"><button class="btn danger" id="btn-logout">Log out</button></div></div>
+        <div class="card"><h3>📊 My performance</h3><dl class="kv">
+          <dt>Completed simulations</dt><dd>${t.completed}</dd>
+          <dt>Average score</dt><dd>${t.avg_score ?? "—"}</dd>
+          <dt>Avg. time to detect</dt><dd>${App.fmtDur(t.avg_time_to_detect_sec)}</dd>
+          <dt>Avg. time to contain</dt><dd>${App.fmtDur(t.avg_time_to_contain_sec)}</dd>
+          <dt>Alerts acknowledged</dt><dd>${t.alerts_acknowledged}</dd>
+          <dt>False positives</dt><dd>${t.false_positives}</dd>
+          <dt>Missed critical alerts</dt><dd>${t.missed_critical}</dd></dl></div>
+      </div>`;
+    document.getElementById("btn-logout").onclick = () => API.logout();
+  } catch (e) { el.innerHTML = `<div class="empty">Error: ${App.esc(e.message)}</div>`; }
+})();
+</script>
+</body>
+</html>

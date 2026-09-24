@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cybersoc
+      POSTGRES_USER: cybersoc
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme-in-production}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cybersoc -d cybersoc"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg2://cybersoc:${DB_PASSWORD:-changeme-in-production}@db:5432/cybersoc
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-this-to-a-long-random-secret}
+      JWT_EXPIRE_MIN: "720"
+      SEED_DEMO_USERS: "true"
+      CORS_ORIGINS: '["http://localhost:8080", "http://localhost"]'
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "8000"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

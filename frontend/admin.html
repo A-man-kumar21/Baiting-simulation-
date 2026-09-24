@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CyberSOC — Admin</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<script src="/js/api.js"></script>
+<script src="/js/app.js"></script>
+<script>
+document.body.insertAdjacentHTML("afterbegin", App.shell({
+  title: "Admin panel",
+  subtitle: "User management and audit trail.",
+  actions: `<a class="btn" href="/profile.html">← Profile</a>`,
+}));
+App.renderNav();
+
+async function loadUsers(el) {
+  const r = await API.get("/users?limit=100");
+  el.innerHTML = `<table><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Active</th><th>Created</th><th></th></tr>` +
+    r.items.map((u) => `<tr><td>${u.id}</td><td>${App.esc(u.name)}</td><td class="mono">${App.esc(u.email)}</td>
+      <td>${App.badge(u.role)}</td><td>${u.is_active ? "✔" : "✖"}</td><td>${App.fmtDate(u.created_at)}</td>
+      <td><div class="btn-row">
+        ${u.role !== "ADMIN" ? `<button class="btn small" data-role="${u.id}:ADMIN">Make admin</button>` : ""}
+        ${u.role !== "SOC_ANALYST" ? `<button class="btn small" data-role="${u.id}:SOC_ANALYST">Make analyst</button>` : ""}
+        <button class="btn small ${u.is_active ? "danger" : ""}" data-act="${u.id}:${u.is_active ? "0" : "1"}">${u.is_active ? "Deactivate" : "Activate"}</button>
+      </div></td></tr>`).join("") + `</table>`;
+  el.querySelectorAll("[data-role]").forEach((b) => b.onclick = async () => {
+    const [id, role] = b.dataset.role.split(":");
+    try { await API.patch(`/users/${id}`, { role }); App.toast("Role updated", "ok"); loadUsers(el); }
+    catch (e) { App.toast(e.message, "err"); }
+  });
+  el.querySelectorAll("[data-act]").forEach((b) => b.onclick = async () => {
+    const [id, v] = b.dataset.act.split(":");
+    try { await API.patch(`/users/${id}`, { is_active: v === "1" }); App.toast("User updated", "ok"); loadUsers(el); }
+    catch (e) { App.toast(e.message, "err"); }
+  });
+}
+
+async function loadAudit(el) {
+  const r = await API.get("/audit?limit=50");
+  el.innerHTML = `<table><tr><th>Time</th><th>User</th><th>Action</th><th>Resource</th><th>ID</th></tr>` +
+    r.items.map((a) => `<tr><td style="white-space:nowrap">${App.fmtDate(a.timestamp)}</td><td>${a.user_id ?? "—"}</td>
+      <td class="mono">${App.esc(a.action)}</td><td>${App.esc(a.resource)}</td><td>${a.resource_id ?? "—"}</td></tr>`).join("") + `</table>`;
+}
+
+(async () => {
+  const me = await App.guard({ adminOnly: true });
+  if (!me) return;
+  document.getElementById("page").innerHTML = `
+    <div class="card"><h3>👥 Users</h3><div id="users"><div class="loading">…</div></div></div>
+    <div class="card" style="margin-top:16px"><h3>📜 Audit trail (latest 50)</h3><div id="audit"><div class="loading">…</div></div></div>`;
+  try {
+    await loadUsers(document.getElementById("users"));
+    await loadAudit(document.getElementById("audit"));
+  } catch (e) { App.toast(e.message, "err"); }
+})();
+</script>
+</body>
+</html>

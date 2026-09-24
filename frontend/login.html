@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CyberSOC — Log in</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="content">
+  <div class="card form-card">
+    <div class="brand" style="justify-content:center;margin-bottom:8px">
+      <div class="logo">S</div><div><b>CyberSOC</b><small>Security Operations</small></div>
+    </div>
+    <h3 style="text-align:center">Analyst log in</h3>
+    <div class="safety">🛡️ <span><b>Simulation only.</b> Training platform — all attacks and data are fictional.</span></div>
+    <form id="f">
+      <label>Email</label><input id="email" type="email" required autocomplete="username">
+      <label>Password</label><input id="password" type="password" required autocomplete="current-password">
+      <div style="margin-top:16px"><button class="btn primary" style="width:100%;justify-content:center" type="submit">Log in</button></div>
+    </form>
+    <p style="text-align:center;color:var(--muted)">No account? <a href="/register.html">Register</a></p>
+    <p id="err" style="color:var(--red);text-align:center"></p>
+  </div>
+</div>
+<script src="/js/api.js"></script>
+<script src="/js/app.js"></script>
+<script>
+if (API.token()) location.href = "/dashboard.html";
+document.getElementById("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const err = document.getElementById("err"); err.textContent = "";
+  try {
+    const r = await API.post("/auth/login", {
+      email: document.getElementById("email").value.trim(),
+      password: document.getElementById("password").value,
+    });
+    API.setToken(r.access_token);
+    location.href = "/dashboard.html";
+  } catch (ex) { err.textContent = ex.message; }
+});
+</script>
+</body>
+</html>

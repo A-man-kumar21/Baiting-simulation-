@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CyberSOC — MITRE ATT&CK</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<script src="/js/api.js"></script>
+<script src="/js/app.js"></script>
+<script>
+document.body.insertAdjacentHTML("afterbegin", App.shell({
+  title: "MITRE ATT&CK® mapping",
+  subtitle: "Adversary techniques simulated in this training platform, and where each appears.",
+}));
+App.renderNav();
+
+(async () => {
+  const me = await App.guard();
+  if (!me) return;
+  const el = document.getElementById("page");
+  el.innerHTML = `<div class="loading">Loading techniques…</div>`;
+  try {
+    const techs = await API.get("/mitre/techniques");
+    const withSc = await Promise.all(techs.map(async (t) => {
+      try { return await API.get(`/mitre/techniques/${t.technique_id}`); } catch (_) { return { ...t, scenarios: [] }; }
+    }));
+    el.innerHTML = `<div class="card"><table>
+      <tr><th>ID</th><th>Technique</th><th>What the simulation does</th><th>Scenarios</th></tr>
+      ${withSc.map((t) => `<tr><td><span class="badge b-INFO mono">${App.esc(t.technique_id)}</span></td>
+        <td><b>${App.esc(t.name)}</b></td><td style="color:var(--muted)">${App.esc(t.description || "")}</td>
+        <td>${(t.scenarios || []).map((s) => `<a class="btn small" style="margin:0 4px 4px 0" href="/scenario.html?id=${s.id}">${App.esc(s.name.split(":")[0])}</a>`).join("") || "—"}</td></tr>`).join("")}
+      </table>
+      <p style="color:var(--muted);font-size:12px;margin-top:12px">MITRE ATT&CK® is a registered trademark of The MITRE Corporation. Technique IDs are used here for training alignment only.</p></div>`;
+  } catch (e) { el.innerHTML = `<div class="empty">Error: ${App.esc(e.message)}</div>`; }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CyberSOC — Reports</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<script src="/js/api.js"></script>
+<script src="/js/app.js"></script>
+<script>
+document.body.insertAdjacentHTML("afterbegin", App.shell({
+  title: "After-action reports",
+  subtitle: "Full debrief of every completed simulation: timeline, actions, MITRE coverage, score.",
+  actions: `<button class="btn" id="btn-print" style="display:none">🖨 Print</button>`,
+}));
+App.renderNav();
+const focusId = location.hash.slice(1);
+
+async function listView(el) {
+  const r = await API.get("/reports?limit=50");
+  el.innerHTML = r.items.length ? `<div class="grid c3">` + r.items.map((x) => `
+    <div class="card"><h3>${App.esc(x.scenario_name)}</h3>
+      <div class="score-ring" style="color:${x.score >= 80 ? "var(--green)" : x.score >= 60 ? "var(--yellow)" : "var(--red)"}">${x.score ?? "—"}</div>
+      <div style="color:var(--muted)">${App.badge(x.grade || "?")} · ${App.fmtDate(x.completed_at)}</div>
+      <div class="btn-row" style="margin-top:10px"><button class="btn small primary" data-rep="${x.simulation_id}">Open report</button></div></div>`).join("") + `</div>`
+    : `<div class="empty">No completed simulations yet. Finish a run to generate a report.</div>`;
+  el.querySelectorAll("[data-rep]").forEach((b) => b.onclick = () => { location.hash = b.dataset.rep; reportView(el, b.dataset.rep); });
+}
+
+async function reportView(el, simId) {
+  document.getElementById("btn-print").style.display = "";
+  el.innerHTML = `<div class="loading">Building report…</div>`;
+  const r = await API.get(`/simulations/${simId}/report`);
+  document.querySelector(".page-head h1").textContent = "Report: " + r.scenario.name;
+  const dims = Object.entries(r.score.dimensions || {});
+  const totalColor = r.score.total >= 80 ? "var(--green)" : r.score.total >= 60 ? "var(--yellow)" : "var(--red)";
+  el.innerHTML = `
+    <div class="btn-row" style="margin-bottom:14px"><button class="btn small" id="back">← All reports</button></div>
+    <div class="safety">🛡️ <span>${App.esc(r.simulation_note)}</span></div>
+    <div class="grid c2">
+      <div class="card" style="text-align:center"><h3>Final score</h3>
+        <div class="score-ring" style="color:${totalColor}">${r.score.total}</div>
+        <div>${App.badge(r.score.grade)} <span style="color:var(--muted)">· ${App.esc(r.score.grade_label || "")}</span></div>
+        <div style="margin-top:12px;text-align:left">${dims.map(([k, d]) => `
+          <div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12.5px">
+            <span style="text-transform:capitalize">${k}</span><span>${d.score}/${d.max}</span></div>
+            <div class="progress"><div style="width:${(100 * d.score / d.max).toFixed(0)}%"></div></div></div>`).join("")}</div></div>
+      <div class="card"><h3>Response times</h3><dl class="kv">
+        <dt>Time to detect</dt><dd>${App.fmtDur(r.response_times.time_to_detect_sec)}</dd>
+        <dt>Time to contain</dt><dd>${App.fmtDur(r.response_times.time_to_contain_sec)}</dd>
+        <dt>Time to resolve</dt><dd>${App.fmtDur(r.response_times.time_to_resolve_sec)}</dd>
+        <dt>Alerts acknowledged</dt><dd>${r.triage.acknowledged}/${r.triage.total_alerts}</dd>
+        <dt>False positives</dt><dd>${r.triage.false_positives}</dd>
+        <dt>Missed critical</dt><dd>${r.triage.missed_critical}</dd></dl>
+        <h3 style="margin-top:12px">What happened</h3><p>${App.esc(r.summary)}</p></div>
+    </div>
+    <div class="card" style="margin-top:16px"><h3>💡 Score explanations</h3><ul>
+      ${r.score.explanations.map((e) => `<li>${App.esc(e)}</li>`).join("")}</ul></div>
+    <div class="card" style="margin-top:16px"><h3>🕒 Attack timeline</h3><div class="timeline">
+      ${r.attack_timeline.map((t) => `<div class="tl-item k-alert"><div class="ts">t+${Math.round(t.offset_sec)}s · ${App.badge(t.severity)}</div>
+        <b>${App.esc(t.title)}</b><div style="color:var(--muted);font-size:12.5px">${App.esc(t.description || "")}</div></div>`).join("")}</div></div>
+    <div class="grid c2" style="margin-top:16px">
+      <div class="card"><h3>⚡ Actions taken (${r.actions_taken.length})</h3>
+        ${r.actions_taken.map((a) => `<div style="padding:6px 0;border-bottom:1px solid var(--border)"><span class="mono">${App.esc(a.action_type)}</span> → <span class="mono">${App.esc(a.target)}</span>
+          <div style="color:var(--muted);font-size:12px">${App.esc(a.result || "")}</div></div>`).join("") || `<div class="empty">None.</div>`}
+        <h3 style="margin-top:12px">Expected vs taken</h3>
+        <p><b>Matched:</b> ${r.expected_vs_taken.matched.map((a) => `<span class="mono">${App.esc(a)}</span>`).join(", ") || "—"}</p>
+        <p><b>Missed:</b> ${r.expected_vs_taken.missed.map((a) => `<span class="mono">${App.esc(a)}</span>`).join(", ") || "—"}</p></div>
+      <div class="card"><h3>🎯 MITRE coverage</h3>
+        ${r.mitre_techniques.map((t) => `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
+          <span class="badge b-INFO">${App.esc(t.technique_id)}</span> <b>${App.esc(t.name)}</b></div>`).join("")}
+        <h3 style="margin-top:12px">Containment</h3><p>${App.esc(r.containment_summary)}</p>
+        <h3>Recommendations</h3><ul>${r.recommendations.map((x) => `<li>${App.esc(x)}</li>`).join("")}</ul></div>
+    </div>`;
+  document.getElementById("back").onclick = () => { location.hash = ""; document.getElementById("btn-print").style.display = "none"; listView(el); };
+}
+
+(async () => {
+  const me = await App.guard();
+  if (!me) return;
+  const el = document.getElementById("page");
+  document.getElementById("btn-print").onclick = () => window.print();
+  try {
+    if (focusId) await reportView(el, focusId);
+    else await listView(el);
+  } catch (e) { el.innerHTML = `<div class="empty">Error: ${App.esc(e.message)}</div>`; }
+})();
+</script>
+</body>
+</html>

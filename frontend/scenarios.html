@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CyberSOC — Scenarios</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<script src="/js/api.js"></script>
+<script src="/js/app.js"></script>
+<script>
+document.body.insertAdjacentHTML("afterbegin", App.shell({
+  title: "Attack Scenarios",
+  subtitle: "Pick a simulated attack to defend against. Each runs as a timed, progressive event stream.",
+  actions: `<span id="admin-new"></span>`,
+}));
+App.renderNav();
+
+(async () => {
+  const me = await App.guard();
+  if (!me) return;
+  if (me.role === "ADMIN") {
+    document.getElementById("admin-new").innerHTML =
+      `<button class="btn" id="btn-new">＋ New scenario</button>`;
+    document.getElementById("btn-new").onclick = () => { location.href = "/scenario-edit.html"; };
+  }
+  const el = document.getElementById("page");
+  el.innerHTML = `<div class="loading">Loading scenarios…</div>`;
+  try {
+    const r = await API.get("/scenarios?limit=100");
+    el.innerHTML = `<div class="grid c3">` + r.items.map((s) => `
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:start">
+          <h3 style="margin:0">${App.esc(s.name)}</h3>${App.badge(s.difficulty || "Medium")}
+        </div>
+        <p style="color:var(--muted);min-height:60px">${App.esc((s.description || "").slice(0, 140))}…</p>
+        <div style="margin:8px 0">${(s.techniques || []).map((t) => `<span class="badge b-INFO" style="margin:0 4px 4px 0">${App.esc(t.technique_id)}</span>`).join("")}</div>
+        <div class="btn-row">
+          <a class="btn small" href="/scenario.html?id=${s.id}">Briefing</a>
+          <button class="btn small primary" data-start="${s.id}">▶ Start</button>
+          ${me.role === "ADMIN" ? `<a class="btn small" href="/scenario-edit.html?id=${s.id}">Edit</a>` : ""}
+        </div>
+      </div>`).join("") + `</div>`;
+    el.querySelectorAll("[data-start]").forEach((b) => b.addEventListener("click", async () => {
+      b.disabled = true;
+      try {
+        const sim = await API.post("/simulations", { scenario_id: parseInt(b.dataset.start, 10), speed: 1 });
+        location.href = "/simulation.html?id=" + sim.id;
+      } catch (e) { App.toast(e.message, "err"); b.disabled = false; }
+    }));
+  } catch (e) { el.innerHTML = `<div class="empty">Error: ${App.esc(e.message)}</div>`; }
+})();
+</script>
+</body>
+</html>

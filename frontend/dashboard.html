@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CyberSOC — Dashboard</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<script src="/js/api.js"></script>
+<script src="/js/app.js"></script>
+<script>
+document.body.insertAdjacentHTML("afterbegin", App.shell({
+  title: "SOC Dashboard",
+  subtitle: "Live view of your simulated security operations.",
+  actions: `<a class="btn primary" href="/scenarios.html">＋ Start simulation</a>`,
+}));
+App.renderNav();
+
+(async () => {
+  const me = await App.guard();
+  if (!me) return;
+  const el = document.getElementById("page");
+  el.innerHTML = `<div class="loading">Loading dashboard…</div>`;
+  try {
+    const [mine, scenarios] = await Promise.all([
+      API.get("/analytics/me"),
+      API.get("/scenarios?limit=100"),
+    ]);
+    const t = mine.totals;
+    const running = mine.running;
+    const recent = mine.history.slice(0, 5);
+    el.innerHTML = `
+      <div class="grid c4">
+        <div class="card stat"><div class="num">${t.completed}</div><div class="lbl">Completed sims</div></div>
+        <div class="card stat"><div class="num">${running.length}</div><div class="lbl">Running now</div></div>
+        <div class="card stat"><div class="num">${t.avg_score ?? "—"}</div><div class="lbl">Avg score</div></div>
+        <div class="card stat"><div class="num">${t.alerts_acknowledged}</div><div class="lbl">Alerts triaged</div></div>
+      </div>
+      <div class="grid c2" style="margin-top:16px">
+        <div class="card">
+          <h3>▶ Running simulations</h3>
+          ${running.length ? running.map((s) => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+              <span><b>${App.esc(s.scenario_name)}</b><br><small style="color:var(--muted)">#${s.id} · ${s.alerts_raised} alerts</small></span>
+              <a class="btn small primary" href="/simulation.html?id=${s.id}">Open live</a>
+            </div>`).join("") : `<div class="empty">No running simulations. <a href="/scenarios.html">Start one</a>.</div>`}
+        </div>
+        <div class="card">
+          <h3>◉ Scenario library</h3>
+          ${scenarios.items.map((s) => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+              <span><b>${App.esc(s.name)}</b><br><small style="color:var(--muted)">${App.esc(s.difficulty || "")} · ${App.esc(s.attack_type)}</small></span>
+              <a class="btn small" href="/scenario.html?id=${s.id}">Brief</a>
+            </div>`).join("")}
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h3>Recent runs</h3>
+        ${recent.length ? `<table><tr><th>Scenario</th><th>Status</th><th>Score</th><th>Finished</th><th></th></tr>
+          ${recent.map((s) => `<tr><td>${App.esc(s.scenario_name)}</td><td>${App.badge(s.status)}</td>
+            <td>${s.score?.total ?? "—"}</td><td>${App.fmtDate(s.completed_at)}</td>
+            <td>${s.status === "COMPLETED" ? `<a class="btn small" href="/reports.html#${s.id}">Report</a>` : `<a class="btn small" href="/simulation.html?id=${s.id}">Resume</a>`}</td></tr>`).join("")}</table>`
+        : `<div class="empty">No runs yet.</div>`}
+      </div>`;
+  } catch (e) { el.innerHTML = `<div class="empty">Error: ${App.esc(e.message)}</div>`; }
+})();
+</script>
+</body>
+</html>
