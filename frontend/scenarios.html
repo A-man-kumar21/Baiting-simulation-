@@ -38,7 +38,7 @@ App.renderNav();
         <div style="margin:8px 0">${(s.techniques || []).map((t) => `<span class="badge b-INFO" style="margin:0 4px 4px 0">${App.esc(t.technique_id)}</span>`).join("")}</div>
         <div class="btn-row">
           <a class="btn small" href="/scenario.html?id=${s.id}">Briefing</a>
-          <button class="btn small primary" data-start="${s.id}">▶ Start</button>
+          <button class="btn small primary" data-start="${s.id}">Start</button>
           ${me.role === "ADMIN" ? `<a class="btn small" href="/scenario-edit.html?id=${s.id}">Edit</a>` : ""}
         </div>
       </div>`).join("") + `</div>`;

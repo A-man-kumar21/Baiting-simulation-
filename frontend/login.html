@@ -7,20 +7,41 @@
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-<div class="content">
-  <div class="card form-card">
-    <div class="brand" style="justify-content:center;margin-bottom:8px">
-      <div class="logo">S</div><div><b>CyberSOC</b><small>Security Operations</small></div>
+<div class="auth-wrap">
+  <div class="auth-brand">
+    <div class="inner">
+      <div class="brand" style="padding:0 0 4px">
+        <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7.5 3v5.5c0 4.6-3.2 7.9-7.5 9.5-4.3-1.6-7.5-4.9-7.5-9.5V6L12 3z"/><path d="M9.5 12l2 2 3.5-4"/></svg></div>
+        <div><b>CyberSOC</b><small>Security Operations</small></div>
+      </div>
+      <h2>Train like a <span class="hl">SOC analyst</span>, safely.</h2>
+      <p class="lead">A simulated security operations console for practicing detection, triage and incident response — no real systems, no real risk.</p>
+      <div class="auth-feat">
+        <div class="f"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2.5L4.5 13.5H11l-1 8 8.5-11H12l1-8z"/></svg></div>
+          <div><b>Progressive attack simulations</b><span>Watch brute-force, phishing and ransomware scenarios unfold live.</span></div></div>
+        <div class="f"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4a6 6 0 0 0-6 6v3.5L4 16h16l-2-2.5V10a6 6 0 0 0-6-6z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg></div>
+          <div><b>Rule-based detections</b><span>Alerts fire as the attack progresses — triage them like the real thing.</span></div></div>
+        <div class="f"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-8"/><path d="M21 20H3"/></svg></div>
+          <div><b>Scored after-action reports</b><span>Every run is graded across detection, response and containment.</span></div></div>
+      </div>
     </div>
-    <h3 style="text-align:center">Analyst log in</h3>
-    <div class="safety">🛡️ <span><b>Simulation only.</b> Training platform — all attacks and data are fictional.</span></div>
-    <form id="f">
-      <label>Email</label><input id="email" type="email" required autocomplete="username">
-      <label>Password</label><input id="password" type="password" required autocomplete="current-password">
-      <div style="margin-top:16px"><button class="btn primary" style="width:100%;justify-content:center" type="submit">Log in</button></div>
-    </form>
-    <p style="text-align:center;color:var(--muted)">No account? <a href="/register.html">Register</a></p>
-    <p id="err" style="color:var(--red);text-align:center"></p>
+  </div>
+  <div class="auth-form-side">
+    <div class="auth-card">
+      <h1>Welcome back</h1>
+      <p class="sub">Log in to your analyst console.</p>
+      <div class="safety"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7.5 3v5.5c0 4.6-3.2 7.9-7.5 9.5-4.3-1.6-7.5-4.9-7.5-9.5V6L12 3z"/><path d="M9.5 12l2 2 3.5-4"/></svg><span><b>Simulation only.</b> Training platform — all data is fictional.</span></div>
+      <form id="f">
+        <label for="email">Email</label>
+        <input id="email" type="email" required autocomplete="username" placeholder="you@example.com">
+        <label for="password">Password</label>
+        <input id="password" type="password" required autocomplete="current-password" placeholder="••••••••">
+        <div style="margin-top:20px"><button class="btn primary" style="width:100%" type="submit">Log in</button></div>
+      </form>
+      <p class="auth-alt">No account? <a href="/register.html">Create one</a></p>
+      <p class="auth-err" id="err"></p>
+      <div class="demo-hint"><b>Demo access</b>admin@cybersoc.sim · Admin123!<br>analyst@cybersoc.sim · Analyst123!</div>
+    </div>
   </div>
 </div>
 <script src="/js/api.js"></script>
@@ -30,6 +51,8 @@ if (API.token()) location.href = "/dashboard.html";
 document.getElementById("f").addEventListener("submit", async (e) => {
   e.preventDefault();
   const err = document.getElementById("err"); err.textContent = "";
+  const btn = e.target.querySelector("button[type=submit]");
+  btn.disabled = true; btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px"></span> Logging in…';
   try {
     const r = await API.post("/auth/login", {
       email: document.getElementById("email").value.trim(),
@@ -37,7 +60,10 @@ document.getElementById("f").addEventListener("submit", async (e) => {
     });
     API.setToken(r.access_token);
     location.href = "/dashboard.html";
-  } catch (ex) { err.textContent = ex.message; }
+  } catch (ex) {
+    err.textContent = ex.message;
+    btn.disabled = false; btn.textContent = "Log in";
+  }
 });
 </script>
 </body>

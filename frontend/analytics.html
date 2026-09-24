@@ -50,7 +50,7 @@ const SEVC = { CRITICAL: "#f87171", HIGH: "#fb923c", MEDIUM: "#fbbf24", LOW: "#3
         ${admin.common_mistakes.length ? `<h3 style="margin-top:16px">Common mistakes</h3><ul>
           ${admin.common_mistakes.map((m) => `<li>${App.esc(m.mistake)} <span style="color:var(--muted)">×${m.count}</span></li>`).join("")}</ul>` : ""}
       </div>` : ""}
-      <div class="card" style="margin-top:16px"><h3>📈 My score history</h3><canvas id="ch-me"></canvas></div>
+      <div class="card" style="margin-top:16px"><h3>My score history</h3><canvas id="ch-me"></canvas></div>
       <div class="card" style="margin-top:16px"><h3>My runs</h3>
         <table><tr><th>Scenario</th><th>Status</th><th>Score</th><th>Detect</th><th>Contain</th><th>Finished</th></tr>
         ${mine.history.map((s) => `<tr><td>${App.esc(s.scenario_name)}</td><td>${App.badge(s.status)}</td>

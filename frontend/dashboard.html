@@ -39,7 +39,7 @@ App.renderNav();
       </div>
       <div class="grid c2" style="margin-top:16px">
         <div class="card">
-          <h3>▶ Running simulations</h3>
+          <h3><span class="live-dot"></span> Running simulations</h3>
           ${running.length ? running.map((s) => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
               <span><b>${App.esc(s.scenario_name)}</b><br><small style="color:var(--muted)">#${s.id} · ${s.alerts_raised} alerts</small></span>
@@ -47,7 +47,7 @@ App.renderNav();
             </div>`).join("") : `<div class="empty">No running simulations. <a href="/scenarios.html">Start one</a>.</div>`}
         </div>
         <div class="card">
-          <h3>◉ Scenario library</h3>
+          <h3>Scenario library</h3>
           ${scenarios.items.map((s) => `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
               <span><b>${App.esc(s.name)}</b><br><small style="color:var(--muted)">${App.esc(s.difficulty || "")} · ${App.esc(s.attack_type)}</small></span>

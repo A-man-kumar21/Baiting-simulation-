@@ -20,7 +20,7 @@ App.renderNav();
   const me = await App.guard();
   if (!me) return;
   if (me.role === "ADMIN") {
-    document.getElementById("admin-link").innerHTML = `<a class="btn" href="/admin.html">🛠 Admin panel</a>`;
+    document.getElementById("admin-link").innerHTML = `<a class="btn" href="/admin.html">Admin panel</a>`;
   }
   const el = document.getElementById("page");
   el.innerHTML = `<div class="loading">Loading…</div>`;
@@ -33,7 +33,7 @@ App.renderNav();
           <dt>Name</dt><dd>${App.esc(me.name)}</dd><dt>Email</dt><dd class="mono">${App.esc(me.email)}</dd>
           <dt>Role</dt><dd>${App.badge(me.role)}</dd><dt>Member since</dt><dd>${App.fmtDate(me.created_at)}</dd></dl>
           <div class="btn-row" style="margin-top:14px"><button class="btn danger" id="btn-logout">Log out</button></div></div>
-        <div class="card"><h3>📊 My performance</h3><dl class="kv">
+        <div class="card"><h3>My performance</h3><dl class="kv">
           <dt>Completed simulations</dt><dd>${t.completed}</dd>
           <dt>Average score</dt><dd>${t.avg_score ?? "—"}</dd>
           <dt>Avg. time to detect</dt><dd>${App.fmtDur(t.avg_time_to_detect_sec)}</dd>

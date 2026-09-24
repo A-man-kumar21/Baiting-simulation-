@@ -22,7 +22,7 @@ async function listView(el) {
   const r = await API.get("/reports?limit=50");
   el.innerHTML = r.items.length ? `<div class="grid c3">` + r.items.map((x) => `
     <div class="card"><h3>${App.esc(x.scenario_name)}</h3>
-      <div class="score-ring" style="color:${x.score >= 80 ? "var(--green)" : x.score >= 60 ? "var(--yellow)" : "var(--red)"}">${x.score ?? "—"}</div>
+      <div class="score-ring" style="--ring:${x.score ?? 0}%;color:${x.score >= 80 ? "var(--green)" : x.score >= 60 ? "var(--yellow)" : "var(--red)"}"><span>${x.score ?? "—"}</span></div>
       <div style="color:var(--muted)">${App.badge(x.grade || "?")} · ${App.fmtDate(x.completed_at)}</div>
       <div class="btn-row" style="margin-top:10px"><button class="btn small primary" data-rep="${x.simulation_id}">Open report</button></div></div>`).join("") + `</div>`
     : `<div class="empty">No completed simulations yet. Finish a run to generate a report.</div>`;
@@ -38,10 +38,10 @@ async function reportView(el, simId) {
   const totalColor = r.score.total >= 80 ? "var(--green)" : r.score.total >= 60 ? "var(--yellow)" : "var(--red)";
   el.innerHTML = `
     <div class="btn-row" style="margin-bottom:14px"><button class="btn small" id="back">← All reports</button></div>
-    <div class="safety">🛡️ <span>${App.esc(r.simulation_note)}</span></div>
+    <div class="safety"><span>${App.esc(r.simulation_note)}</span></div>
     <div class="grid c2">
       <div class="card" style="text-align:center"><h3>Final score</h3>
-        <div class="score-ring" style="color:${totalColor}">${r.score.total}</div>
+        <div class="score-ring" style="--ring:${r.score.total}%;color:${totalColor}"><span>${r.score.total}</span></div>
         <div>${App.badge(r.score.grade)} <span style="color:var(--muted)">· ${App.esc(r.score.grade_label || "")}</span></div>
         <div style="margin-top:12px;text-align:left">${dims.map(([k, d]) => `
           <div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12.5px">

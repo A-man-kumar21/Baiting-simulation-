@@ -31,7 +31,7 @@ const sid = new URLSearchParams(location.search).get("id");
         <option value="1">1× speed</option><option value="4">4× speed</option>
         <option value="16">16× speed</option><option value="60">60× speed</option>
       </select>
-      <button class="btn primary" id="btn-start">▶ Start simulation</button>`;
+      <button class="btn primary" id="btn-start">Start simulation</button>`;
     document.getElementById("btn-start").onclick = async (e) => {
       e.target.disabled = true;
       try {
@@ -45,7 +45,7 @@ const sid = new URLSearchParams(location.search).get("id");
     el.innerHTML = `
       <div class="grid c2">
         <div class="card"><h3>📖 Story</h3><p>${App.esc(d.story || "—")}</p>
-          <h3 style="margin-top:14px">🖥 Environment (simulated)</h3>
+          <h3 style="margin-top:14px">Environment (simulated)</h3>
           <pre class="code">${App.esc(JSON.stringify(env, null, 2))}</pre></div>
         <div class="card"><h3>⛓ Attack chain</h3>
           <div class="chain">${(d.attack_chain || []).map((st) =>

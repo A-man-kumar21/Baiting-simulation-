@@ -41,11 +41,11 @@ async function refreshStatus() {
   document.getElementById("ctrl").innerHTML = `
     ${App.badge(s.status)}
     ${running ? `<button class="btn small" id="b-pause">⏸ Pause</button>` : ""}
-    ${paused ? `<button class="btn small primary" id="b-resume">▶ Resume</button>` : ""}
+    ${paused ? `<button class="btn small primary" id="b-resume">Resume</button>` : ""}
     ${(running || paused) ? `<button class="btn small" id="b-restart">↺ Restart</button>
       <button class="btn small" id="b-complete">✔ Complete</button>
       <button class="btn small danger" id="b-abort">✖ Abort</button>` : ""}
-    ${s.status === "COMPLETED" && s.score ? `<a class="btn small primary" href="/reports.html#${s.id}">📄 Report (score ${s.score.total})</a>` : ""}`;
+    ${s.status === "COMPLETED" && s.score ? `<a class="btn small primary" href="/reports.html#${s.id}">Report (score ${s.score.total})</a>` : ""}`;
   const bind = (id, fn) => { const b = document.getElementById(id); if (b) b.onclick = fn; };
   bind("b-pause", async () => { await API.post(`/simulations/${simId}/pause`); App.toast("Simulation paused", "ok"); poll(); });
   bind("b-resume", async () => { await API.post(`/simulations/${simId}/resume`); App.toast("Simulation resumed", "ok"); poll(); });
@@ -114,16 +114,16 @@ async function askAI() {
   if (!me || !simId) return;
   document.getElementById("page").innerHTML = `
     <div class="grid" style="grid-template-columns: 1.6fr 1fr">
-      <div class="card"><h3>📡 Event stream <label style="display:inline;font-weight:400"><input type="checkbox" id="autopoll" checked style="width:auto"> auto-refresh</label></h3>
+      <div class="card"><h3>Event stream <label style="display:inline;font-weight:400"><input type="checkbox" id="autopoll" checked style="width:auto"> auto-refresh</label></h3>
         <div class="filters"><div><label>Search</label><input id="f-q" placeholder="text, IP, user…"></div>
         <div><label>Type</label><input id="f-type" placeholder="LOGIN_FAILURE"></div>
         <div><label>Severity</label><select id="f-sev"><option value="">All</option><option>LOW</option><option>MEDIUM</option><option>HIGH</option><option>CRITICAL</option></select></div>
         <div><button class="btn small" id="f-go">Filter</button></div></div>
         <div class="feed" id="feed"><div class="loading">Connecting to event stream…</div></div></div>
       <div>
-        <div class="card"><h3>🚨 Alerts</h3><div id="alerts"><div class="loading">…</div></div>
+        <div class="card"><h3>Alerts</h3><div id="alerts"><div class="loading">…</div></div>
           <div class="btn-row" style="margin-top:10px"><a class="btn small" href="/incidents.html">Manage incidents</a></div></div>
-        <div class="card" style="margin-top:16px"><h3>🖥 Simulated environment</h3><div id="env"></div></div>
+        <div class="card" style="margin-top:16px"><h3>Simulated environment</h3><div id="env"></div></div>
         <div class="card ai-box" style="margin-top:16px"><h3>🤖 SOC assistant <small style="color:var(--muted)">(rule-based)</small></h3>
           <div class="btn-row"><input id="ai-q" placeholder="e.g. What should I do about these alerts?" style="flex:1">
           <button class="btn small primary" id="ai-go">Ask</button></div>

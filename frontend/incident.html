@@ -39,7 +39,7 @@ async function load() {
           ${d.timeline.map((t) => `<div class="tl-item k-${t.kind}"><div class="ts">${App.fmtDate(t.timestamp)}</div>
             <b>${App.esc(t.title)}</b><div style="color:var(--muted);font-size:12.5px">${App.esc(t.detail || "")}</div></div>`).join("")}
         </div></div>
-        <div class="card" style="margin-top:16px"><h3>🚨 Correlated alerts (${d.alerts.length})</h3>
+        <div class="card" style="margin-top:16px"><h3>Correlated alerts (${d.alerts.length})</h3>
           ${d.alerts.map((a) => `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
             ${App.badge(a.severity)} <b>${App.esc(a.title)}</b> ${App.badge(a.status)}</div>`).join("") || `<div class="empty">None yet.</div>`}
           <div class="btn-row" style="margin-top:10px"><input id="c-ids" placeholder="Correlate alert IDs: 7,8" style="flex:1">
@@ -61,7 +61,7 @@ async function load() {
             <span class="mono">${App.esc(a.action_type)}</span> → <span class="mono">${App.esc(a.target)}</span>
             <div style="color:var(--muted);font-size:12px">${App.esc(a.result || "")}</div></div>`).join("") || `<div class="empty">No actions yet.</div>`}
         </div>
-        <div class="card" style="margin-top:16px"><h3>🖥 Simulated assets</h3>
+        <div class="card" style="margin-top:16px"><h3>Simulated assets</h3>
           ${d.assets.map((a) => `<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px">
             <span class="badge b-INFO">${App.esc(a.asset_type)}</span> <span class="mono">${App.esc(a.identifier)}</span><br>
             status: <b>${App.esc(a.status)}</b></div>`).join("")}</div>
