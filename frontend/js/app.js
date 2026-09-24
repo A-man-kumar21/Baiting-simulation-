@@ -171,7 +171,7 @@ const App = (() => {
     const max = Math.max(1, ...data.map((d) => d.value));
     const slot = (w - 40) / Math.max(1, data.length);
     const bw = Math.min(54, slot - 14);
-    ctx.strokeStyle = "rgba(148,163,184,.12)"; ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(152,163,157,.12)"; ctx.lineWidth = 1;
     for (let g = 0; g <= 4; g++) {
       const y = 14 + (g * (height - 60)) / 4;
       ctx.beginPath(); ctx.moveTo(30, y); ctx.lineTo(w - 10, y); ctx.stroke();
@@ -181,13 +181,13 @@ const App = (() => {
       const x = 20 + i * slot + (slot - bw) / 2;
       const y = height - 34 - h;
       const grad = ctx.createLinearGradient(0, y, 0, y + h);
-      grad.addColorStop(0, d.color || "#5b8cff");
-      grad.addColorStop(1, (d.color || "#5b8cff") + "55");
+      grad.addColorStop(0, d.color || "#2dd4a0");
+      grad.addColorStop(1, (d.color || "#2dd4a0") + "55");
       ctx.fillStyle = grad;
       ctx.beginPath(); ctx.roundRect(x, y, bw, h, [5, 5, 0, 0]); ctx.fill();
-      ctx.fillStyle = "#c3cede"; ctx.font = "600 12px Inter, sans-serif"; ctx.textAlign = "center";
+      ctx.fillStyle = "#cfd8d3"; ctx.font = "600 12px Inter, sans-serif"; ctx.textAlign = "center";
       ctx.fillText(String(d.value), x + bw / 2, y - 7);
-      ctx.fillStyle = "#5d6a85"; ctx.font = "11px Inter, sans-serif";
+      ctx.fillStyle = "#6b766f"; ctx.font = "11px Inter, sans-serif";
       ctx.fillText(d.label.slice(0, 14), x + bw / 2, height - 14);
     });
   }
@@ -202,25 +202,25 @@ const App = (() => {
     const max = Math.max(1, ...points), min = Math.min(0, ...points);
     const px = (i) => 34 + (i * (w - 54)) / Math.max(1, points.length - 1);
     const py = (v) => height - 36 - ((v - min) / (max - min || 1)) * (height - 66);
-    ctx.strokeStyle = "rgba(148,163,184,.12)"; ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(152,163,157,.12)"; ctx.lineWidth = 1;
     for (let g = 0; g <= 4; g++) {
       const y = 12 + (g * (height - 60)) / 4;
       ctx.beginPath(); ctx.moveTo(34, y); ctx.lineTo(w - 12, y); ctx.stroke();
     }
     if (points.length > 1) {
       const grad = ctx.createLinearGradient(0, 12, 0, height - 30);
-      grad.addColorStop(0, "rgba(91,140,255,.30)"); grad.addColorStop(1, "rgba(91,140,255,0)");
+      grad.addColorStop(0, "rgba(45,212,160,.28)"); grad.addColorStop(1, "rgba(45,212,160,0)");
       ctx.beginPath();
       points.forEach((v, i) => (i ? ctx.lineTo(px(i), py(v)) : ctx.moveTo(px(i), py(v))));
       ctx.lineTo(px(points.length - 1), height - 30); ctx.lineTo(px(0), height - 30); ctx.closePath();
       ctx.fillStyle = grad; ctx.fill();
       ctx.beginPath();
       points.forEach((v, i) => (i ? ctx.lineTo(px(i), py(v)) : ctx.moveTo(px(i), py(v))));
-      ctx.strokeStyle = "#5b8cff"; ctx.lineWidth = 2.2; ctx.lineJoin = "round"; ctx.stroke();
+      ctx.strokeStyle = "#2dd4a0"; ctx.lineWidth = 2.2; ctx.lineJoin = "round"; ctx.stroke();
     }
-    ctx.fillStyle = "#8fb0ff";
+    ctx.fillStyle = "#7ef0c4";
     points.forEach((v, i) => { ctx.beginPath(); ctx.arc(px(i), py(v), 3.5, 0, 7); ctx.fill(); });
-    ctx.fillStyle = "#5d6a85"; ctx.font = "11px Inter, sans-serif"; ctx.textAlign = "center";
+    ctx.fillStyle = "#6b766f"; ctx.font = "11px Inter, sans-serif"; ctx.textAlign = "center";
     labels.forEach((l, i) => { if (i % Math.ceil(labels.length / 8) === 0) ctx.fillText(l, px(i), height - 12); });
   }
 
